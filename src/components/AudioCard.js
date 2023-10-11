@@ -1,7 +1,9 @@
-import React, { createRef, useEffect } from 'react';
+import React, { createRef, useEffect, useState } from 'react';
 import { Button, Card, Flex, Image, Space, Tag, Typography } from 'antd';
 import { MoreOutlined, HeartOutlined, HeartFilled, PlayCircleFilled, PauseCircleFilled } from '@ant-design/icons'
 import { useAudioPlayer } from '../context/AudioPlayerContext';
+import { storage } from '../firebase';
+import { getDownloadURL, ref } from 'firebase/storage';
 
 const gridStyle = {
     width: '14%',
@@ -12,27 +14,62 @@ const gridStyle = {
 };
 
 export function AudioCard({ details }) {
+    const [url, setURL] = useState('')
     const { state, dispatch } = useAudioPlayer()
     const { isPlaying, currentSong } = state;
 
     const audioRef = createRef()
+
+    const firebaseStorageToBlob = async () => {
+        try {
+            //getDownloadURL(ref(storage, ''))
+            const storageRef = ref(storage, details.path)
+            let temp = getDownloadURL(storageRef).then((url) => {
+                return url
+            })
+            if(temp){
+                setURL(temp)
+                return temp
+            }
+        } catch(error) {
+            console.error('Error converting Firebase Storage URI to Blob:', error);
+        }
+    }
     
     const handlePlay = () => {
-        if(currentSong===null || currentSong!==details.path) {
-            dispatch({ type: 'SET_SONG', payload: details.path })
+        if(currentSong){
+            if(currentSong?.id!==details.id){
+                firebaseStorageToBlob().then((blob) => {
+                    dispatch({ type: 'SET_SONG', payload: { id: details.id, src: blob }})
+                    dispatch({ type: 'PLAY' })
+                })
+            } else {
+                dispatch({ type: 'PLAY' })
+            }
+        } else {
+            firebaseStorageToBlob().then((blob) => {
+                dispatch({ type: 'SET_SONG', payload: { id: details.id, src: blob }})
+                dispatch({ type: 'PLAY' })
+            })
         }
-        dispatch({ type: 'PLAY' })
     }
 
     const handlePause = () => {
-        if(currentSong===null || currentSong!==details.path) {
-            dispatch({ type: 'SET_SONG', payload: details.path })
+        if(currentSong){
+            if(currentSong?.id!==details.id){
+                firebaseStorageToBlob().then((blob) => {
+                    dispatch({ type: 'SET_SONG', payload: { id: details.id, src: blob }})
+                    dispatch({ type: 'PAUSE' })
+                })
+            } else {
+                dispatch({ type: 'PAUSE' })
+            }
+        } else {
+            firebaseStorageToBlob().then((blob) => {
+                dispatch({ type: 'SET_SONG', payload: { id: details.id, src: blob }})
+                dispatch({ type: 'PAUSE' })
+            })
         }
-        dispatch({ type: 'PAUSE' })
-    }
-
-    const handleSongSelect = (label) => {
-        dispatch({ type: 'SET_SONG', payload: `/audio/${label}.wav` })
     }
 
     useEffect(() => {
@@ -48,12 +85,14 @@ export function AudioCard({ details }) {
     return (
         <Card hoverable={true}>
         <Card.Grid hoverable={false} style={{ ...gridStyle, width: '2%' }}>
-            {(currentSong!==details.path) ? <Button onClick={handlePlay} style={{ height: '55%', borderRadius: '50%' }} icon={<PlayCircleFilled style={{ fontSize: 28 }} />} />
+        {/* {(currentSong===url) ? <Button onClick={handlePlay} style={{ height: '55%', borderRadius: '50%' }} icon={<PlayCircleFilled style={{ fontSize: 28 }} />} /> */}
+        {(currentSong?.id!==details.id) ? 
+            <Button onClick={handlePlay} style={{ height: '55%', borderRadius: '50%' }} icon={<PlayCircleFilled style={{ fontSize: 28 }} />} />
             : (!isPlaying)
                 ? <Button onClick={handlePlay} style={{ height: '55%', borderRadius: '50%' }} icon={<PlayCircleFilled style={{ fontSize: 28 }} />} />
                 : <Button onClick={handlePause} style={{ height: '55%', borderRadius: '50%' }} icon={<PauseCircleFilled style={{ fontSize: 28 }} />} />
             }
-            <audio ref={audioRef} src={currentSong} />
+            <audio ref={audioRef} src={currentSong?.src} type={'audio/wav'}/>
         </Card.Grid>    
         <Card.Grid hoverable={false} style={{ ...gridStyle, width: '22%' }}>
             <Flex horizontal={true} style={{ width: '100%', height: '100%', justifyContent: 'flex-start', alignItems: 'center' }}>
