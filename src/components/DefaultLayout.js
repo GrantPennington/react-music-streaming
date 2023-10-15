@@ -4,10 +4,14 @@ import { Breadcrumb, Button, Layout, Menu, theme } from 'antd';
 import { AudioPlayer } from './AudioPlayer';
 import { AudioCard } from './AudioCard';
 import { database, firestore } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { set, ref, get, child, onValue } from 'firebase/database';
+import FileUpload from './FileUpload';
+import Home from '../screens/Home';
+import Upload from '../screens/Upload';
+import Explore from '../screens/Explore';
 const { Header, Content, Sider } = Layout;
-const items1 = [{ id: '1', label: 'Home' }, { id: '2', label: 'Feed' }, { id: '3', label: 'Favorites' }].map((key) => ({
+const items1 = [{ id: '1', label: 'Home' }, { id: '2', label: 'Feed' }, { id: '3', label: 'Explore' }].map((key) => ({
   key: key.id,
   label: `${key.label}`,
 }));
@@ -28,63 +32,70 @@ const items2 = [{ icon: HeartOutlined, label: 'Favorites' }, { icon: FolderOpenO
   };
 });
 
-const cardDetails = [
-    {
-        id: 1,
-        title: 'Song #1',
-        path: '/audio/audio1.wav',
-        artist: 'Grant Pennington',
-        genre: 'Hip-hop/Rap',
-        key: 'A# minor',
-        bpm: '116',
-        tags: ['drake', 'che ecru', 'partynextdoor'],
-    },
-    {
-        id: 2,
-        title: 'Song #2',
-        path: '/audio/audio2.wav',
-        artist: 'Grant Pennington',
-        genre: 'RnB',
-        key: 'F major',
-        bpm: '146',
-        tags: ['che ecru', 'frvrfriday'],
-    },
-]
+const navMap = {
+    'Home': <Upload />,
+    'Feed': <Home />,
+    'Explore': <Explore />,
+}
 
 const DefaultLayout = ({ children }) => {
     const [songs, setSongs] = useState(null)
+    const [nav, setNav] = useState({ id: '1', label: 'Home' })
 
     const {
         token: { colorBgContainer },
     } = theme.useToken();
 
-    const handleAddTestData = async () => {
-        set(ref(database, 'songs/' + 'Pour It'), {
-            id: 2,
-            title: 'Pour It',
-            path: 'gs://grant-pennington-music.appspot.com/Pour it(Edit).wav',
-            artist: 'Grant Pennington',
-            genre: 'Hip-hop/Rap',
-            key: 'F minor',
-            bpm: '136',
-            tags: ['frvrfriday', 'partynextdoor'],
-        })
-    }
+    // const handleAddTestData = async () => {
+        // set(ref(database, 'songs/' + 'Pour It'), {
+        //     id: 2,
+        //     title: 'Pour It',
+        //     path: 'gs://grant-pennington-music.appspot.com/Pour it(Edit).wav',
+        //     artist: 'Grant Pennington',
+        //     genre: 'Hip-hop/Rap',
+        //     key: 'F minor',
+        //     bpm: '136',
+        //     tags: ['frvrfriday', 'partynextdoor'],
+        // })
+    // }
 
     useEffect(() => {
         // const dbRef = ref(database)
         // get(child(dbRef, `songs/`)).then(() )
-        let temp = []
-        const songsRef = ref(database, 'songs/');
-        onValue(songsRef, (snapshot) => {
-            const data = snapshot.val();
-            console.log('DATA: ',data)
-            Object.keys(data).map((song) => {
-                temp.push(data[song])
-            })
+        const getSongs = async () => {
+            let temp = []
+            const querySnapshot = await getDocs(collection(firestore, "songs"));
+            querySnapshot.forEach((doc) => {
+            // doc.data() is never undefined for query doc snapshots
+                console.log(doc.id, " => ", doc.data());
+                temp.push({ ...doc.data() })
+            });
             setSongs(temp)
-        });
+        }
+        getSongs()
+        // const songsRef = ref(database, 'songs/');
+        // onValue(songsRef, (snapshot) => {
+        //     const data = snapshot.val();
+        //     console.log('DATA: ',data)
+        //     Object.keys(data).map((song) => {
+        //         temp.push(data[song])
+        //     })
+        //     setSongs(temp)
+        // });
     }, [])
+
+    const handleMenuNav = (item) => {
+        if(!item){ return ; }
+        items1.forEach((menuItem) => {
+            if(menuItem.key===item.key){
+                setNav(menuItem)
+            }
+        })
+    }
+
+    useEffect(() => {
+        console.log('NAV: ',nav)
+    }, [nav])
 
     return (
         <Layout>
@@ -95,7 +106,7 @@ const DefaultLayout = ({ children }) => {
             }}
         >
             <div className="demo-logo" />
-            <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['2']} items={items1} />
+            <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['1']} items={items1} onClick={(item) => handleMenuNav(item)}/>
         </Header>
         <Layout>
             <Sider
@@ -131,17 +142,20 @@ const DefaultLayout = ({ children }) => {
             </Breadcrumb>
             <Content
                 style={{
-                    padding: 24,
+                    padding: 18,
                     margin: 0,
                     minHeight: 280,
                     background: colorBgContainer,
+                    width: '100%',
+                    height: '80vh',
+                    overflowY: 'scroll'
                 }}
             >
-                {/* <Button onClick={handleAddTestData}>Add Data</Button> */}
+                {/* <FileUpload songSize={songs?.length}/>
                 {(!!songs) && songs.map((song) => (
                     <AudioCard key={song.id} details={song} />
-                ))}
-                {/* <AudioPlayer /> */}
+                ))} */}
+                {navMap[nav.label]}
             </Content>
             </Layout>
         </Layout>
